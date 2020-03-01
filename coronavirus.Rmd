@@ -9,9 +9,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Coronavirus
 
-As we know coronavirus is a huge problem currently. Johns Hopkins University Center for Systems Science and Engineering (JHU CCSE) has released a package at CRAN which provides a daily summary of the **Coronavirus (COVID-19)** cases by state/province. The package is available at <https://cran.r-project.org/web/packages/coronavirus/index.html>.
+As we know coronavirus is a huge problem currently and I found an oportunnity to enhance my programming skills in *R* with a simple dataset. I recently noticed Johns Hopkins University Center for Systems Science and Engineering (JHU CCSE) has released a package at CRAN which provides a daily summary of the **Coronavirus (COVID-19)** cases by state/province. The package is available at <https://cran.r-project.org/web/packages/coronavirus/index.html>. Below, I'll show some simple analysis with this dataset with the help of *ggplot2* in *R*, my aim for next posts is to show you how create dynamics plots with *gganimate* package.
 
-In this post will be shown how coronavirus virus began to spread in the World, and how the cases in each country are increasing. For this purpose are employed the following packages:
+The main gist of the process is to show how coronavirus is spread in the World nowadays, and how the cases in each country are increasing. To get started, you’ll need to download coronavirus from Github using the devtools package:
+
+```{r, echo=T, message=F}
+if (!require(devtools)) {
+    install.packages("devtools")
+}
+if (!require(coronavirus)) {
+  devtools::install_github(" RamiKrispin/coronavirus")
+}
+```
+
+In addition to this package, I’ll also use `dplyr` and `magrittr` for data manipulation, `ggplot2` for plotting, and `maps` for geographical data. 
 
 ```{r , echo=T, message=F}
 library(coronavirus)# The 2019 Novel Coronavirus COVID-19 (2019-nCoV) Dataset
@@ -19,7 +30,6 @@ library(dplyr)      # A Grammar of Data Manipulation
 library(magrittr)   # A Forward-Pipe Operator for R
 library(maps)       # Draw Geographical Maps
 library(ggplot2)    # Create Elegant Data Visualisations Using the Grammar of Graphics
-library(gganimate)  # A Grammar of Animated Graphics
 ```
 
 ## COVID-19 spread evolution around the Globe
@@ -44,7 +54,7 @@ coronavirus_data %>% head() %>% kable()
 
 The next step is to plot each point on the globe:
 
-```{r, echo=FALSE}
+```{r}
 map.world <- map_data("world")
 
 ggplot() +
@@ -52,9 +62,9 @@ ggplot() +
                fill="lightgray", colour = "gray50", size = 0.2) +
   geom_point(data = coronavirus_data, aes(x = Long, y = Lat, size = cases), 
              shape = 21, stroke =0.1, fill = "#ccff00") +
-  coord_fixed() +
   labs(x="", y="", title = "COVID-19", subtitle = "Coronavirus evolution around the World",
        size = "Confirmed \ncases") +
+  coord_fixed() +
   theme_bw() +
   theme(plot.title = element_text(face = "bold"))
 ```
@@ -67,7 +77,7 @@ But as seen all the points are overlapped, because the date is not being conside
 
 Talk about geom_flag
 
-Max barplot use dotline
+Max bar plot use dot line
 
 
 ```{r, echo=FALSE}
