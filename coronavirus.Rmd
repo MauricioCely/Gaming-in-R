@@ -1,6 +1,9 @@
 ---
 title: "Data visualization with R coronavirus and ggplot2 Packages"
-output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -9,11 +12,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Coronavirus
 
-As we know coronavirus is a huge problem currently and I found an oportunnity to enhance my programming skills in *R* with a simple dataset. I recently noticed Johns Hopkins University Center for Systems Science and Engineering (JHU CCSE) has released a package at CRAN which provides a daily summary of the **Coronavirus (COVID-19)** cases by state/province. The package is available at <https://cran.r-project.org/web/packages/coronavirus/index.html>. Below, I'll show some simple analysis with this dataset with the help of *ggplot2* in *R*, my aim for next posts is to show you how create dynamics plots with *gganimate* package.
+As we all know the coronavirus is a current issue that concerns all humanity because of its gravity. Wanting to know more, I found a package in CRAN that helped me understand the spread of the disease globally. Although for many it may seem like a rudimentary table of daily case records, I found in this simple data set an opportunity to do what I like most - graphics - and to share with those people who want to venture to use **R** something of what I have learned with `ggplot`. Of course, without neglecting how serious this disease is and how it has been its temporal and spatial evolution on the planet. Well, as the saying goes:
 
-The main gist of the process is to show how coronavirus is spread in the World nowadays, and how the cases in each country are increasing. To get started, you’ll need to download coronavirus from Github using the devtools package:
+> *A picture is worth a thousand words.*
+
+Johns Hopkins University Center for Systems Science and Engineering (JHU CCSE) has released a package at CRAN which provides a daily summary of the **Coronavirus (COVID-19)** cases by state/province. The package is available at <https://cran.r-project.org/web/packages/coronavirus/index.html>. Below, I'll show some simple analysis with this dataset with the help of *ggplot2* in *R*, my aim for next posts is to show you how to create animated plots with *gganimate* package.
+
+The main gist of the process is to show how coronavirus is spread in the World nowadays, and how the cases in each country are increasing. To get started, you’ll need to download coronavirus from Github using the `devtools` package:
 
 ```{r, echo=T, message=F}
+# *************** Install package ***************
+
 if (!require(devtools)) {
     install.packages("devtools")
 }
@@ -22,14 +31,14 @@ if (!require(coronavirus)) {
 }
 ```
 
-In addition to this package, I’ll also use `dplyr` and `magrittr` for data manipulation, `ggplot2` for plotting, and `maps` for geographical data. 
+In addition to this package, I’ll also use `dplyr` and `magrittr` for data manipulation, `ggplot2` for plotting, and `maps` for manipulate geographical data. 
 
 ```{r , echo=T, message=F}
-library(coronavirus)# The 2019 Novel Coronavirus COVID-19 (2019-nCoV) Dataset
-library(dplyr)      # A Grammar of Data Manipulation
-library(magrittr)   # A Forward-Pipe Operator for R
-library(maps)       # Draw Geographical Maps
-library(ggplot2)    # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(coronavirus)  # The 2019 Novel Coronavirus COVID-19 (2019-nCoV) Dataset
+library(dplyr)        # A Grammar of Data Manipulation
+library(magrittr)     # A Forward-Pipe Operator for R
+library(maps)         # Draw Geographical Maps
+library(ggplot2)      # Create Elegant Data Visualisations Using the Grammar of Graphics
 ```
 
 ## COVID-19 spread evolution around the Globe
@@ -38,40 +47,68 @@ When loading the `library(coronavirus)` we get the dataset which contains the da
 
 ```{r, layout="l-body-outset"}
 library(knitr) # A General-Purpose Package for Dynamic Report Generation in R
-kable(head(coronavirus))
+DT::datatable(coronavirus, rownames = FALSE)
 ```
 
-Filtering by "confirmed " cases and renaming some columns we get:
+Now we are going to calculate the quantity of cases confirmed, death, and recovered until the last time dataset was updated for each country. Grouping data by Country.Region, Province.State, Lat, Long and type and adding up the cases, we have:
 
 ```{r}
 coronavirus_data <- 
 coronavirus %>% 
-  filter(type == "confirmed") %>% 
+  group_by(Country.Region, Province.State, Lat, Long, type) %>% 
+  summarise(total = sum(cases)) %>% 
   rename(Country = Country.Region)
 
 coronavirus_data %>% head() %>% kable()
 ```
 
-The next step is to plot each point on the globe:
+Now we are going to locate each coordinate of the dataset in a worldmap using a point for each one. Color and size of the points are going to be related with the quantity of cases, we are going to build a grid of plots with the `facet_grid` function to create a map for each type of case:
 
-```{r}
-map.world <- map_data("world")
+```{r fig.height=6,fig.width=9, fig.align = "center", out.width="100%"}
+
+# CREATE THEME
+theme.maptheeme <-
+  theme(text = element_text(family = "Gill Sans", color = "#444444")) +
+  theme(plot.title = element_text(size = 16, face = "bold")) +
+  theme(plot.subtitle = element_text(size = 12)) +
+  theme(panel.grid = element_blank()) +
+  theme(axis.text = element_blank()) +
+  theme(axis.ticks = element_blank()) +
+  theme(axis.title = element_blank()) +
+  theme(legend.background = element_blank()) +
+  theme(legend.key = element_blank()) +
+  theme(legend.title = element_text(size = 12)) +
+  theme(legend.text = element_text(size = 10)) +
+  theme(panel.background = element_rect(fill = "#596673")) +
+  theme(panel.grid = element_blank())
+
+map.world <- map_data("world")  # Here we are obtaining the worldmap data, borders, countries, etc.
 
 ggplot() +
-  geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
-               fill="lightgray", colour = "gray50", size = 0.2) +
-  geom_point(data = coronavirus_data, aes(x = Long, y = Lat, size = cases), 
-             shape = 21, stroke =0.1, fill = "#ccff00") +
-  labs(x="", y="", title = "COVID-19", subtitle = "Coronavirus evolution around the World",
-       size = "Confirmed \ncases") +
+  geom_polygon(data = map.world, aes(x = long, y = lat, group = group), 
+               fill = "#DEDEDE",colour = "#818181", size = 0.2) +   # World map
+  geom_point(data = coronavirus_data, 
+             aes(x = Long, y = Lat, size = total, fill = type, color = type),
+             shape = 21, stroke =0.4, alpha = 0.4) +                 # Coronavirus
+  facet_wrap(facets = ~type, ncol = 2) +                            # Facet
+  scale_size_continuous(range = c(.7,15), 
+                        labels = scales::comma_format()) +
+  labs(x="", y="", title = "COVID-19", 
+       subtitle = paste("Total number of coronavirus cases from the origin of the disease to",
+                        max(coronavirus$date)),
+       size = "Confirmed \ncases" , color = "Type\n") +                                # Aesthetics
+  guides(fill = guide_legend(override.aes = list(size=10, alpha = 0.5)),
+         size = guide_legend(override.aes = list(alpha = 0.9, stroke = 1))) +
   coord_fixed() +
-  theme_bw() +
-  theme(plot.title = element_text(face = "bold"))
+  theme.maptheeme +
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = c(0.75, 0.25), 
+        legend.direction = "vertical",
+        legend.box = "horizontal")
 ```
 
 But as seen all the points are overlapped, because the date is not being considered. Now we are going to include this variable (time) as a _Dynamic_ plot, this using `library(gganimate)`. A very good guide explaining the features of this library is found [here](https://goodekat.github.io/presentations/2019-isugg-gganimate-spooky/slides.html).
 
-## Total cases until today World (facet by case)
 
 ## Total cases by country until today facet (bar plot)
 
@@ -95,7 +132,9 @@ ggplot() +
   theme(plot.title = element_text(face = "bold"))
 ```
 
-```{r}
+
+
+```{r fig.height=5,fig.width=9, fig.align = "center", out.width="100%"}
 Wuhan <- 
 data.frame(Province.State = "Hubei",
            Lat = 30.97564,
@@ -103,50 +142,30 @@ data.frame(Province.State = "Hubei",
 
 migr_corona <- 
 coronavirus %>% filter(Province.State != "Hubei") %>% 
-  select(Country.Region,date, Lat, Long) %>% distinct()
+  select(Lat, Long) %>% distinct()
 
 ggplot() +
   geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
-               fill="lightgray", colour = "gray50", size = 0.2) + 
-  geom_curve(data=migr_corona,
-             aes(x=Wuhan$Long, y=Wuhan$Lat, xend=Long, yend=Lat, color = Country.Region, group =date),
-             # col="#00008b",
-             size=.5,
-             curvature=0.2) +
+               fill="#767676", colour = "black", size = 0.05, alpha = 0.3) + 
+  geom_curve(data=migr_corona, angle =  runif(nrow(migr_corona), min = 0, max = 180),
+             aes(x=Wuhan$Long, y=Wuhan$Lat, xend=Long, yend=Lat),
+             color= alpha("lightblue", 0.3),
+             size=.3,
+             curvature=0.4) +
   geom_point(data=Wuhan,
              aes(x=Long, y=Lat), 
              fill="red", shape = 21, stroke=0.2,
              color ="white", size=1.5) +
   geom_point(data=migr_corona,
              aes(x=Long, y=Lat), 
-             fill="gray40", shape = 21, stroke=0.2,
-             color ="gray40",size=1.5) +
+             color =alpha("lightblue", 0.3),size=0.2) +
   coord_fixed() +
   guides(color=guide_legend(nrow = 3)) +
   labs(x="", y="", title = "COVID-19", subtitle = "Countries which have confirmed coronavirus cases",
        color = "") +
   #transition_reveal(along = date, keep_last = T) +
-  theme_bw() +
+  theme.maptheeme +
   theme(plot.title = element_text(face = "bold"), 
-        legend.position = "bottom")
+        legend.position = "bottom",
+        panel.background = element_rect(fill = "#021629"))
 ```
-```{r}
-# ggplot(data = coronavirus_data, aes(group = date)) +
-#   geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
-#                fill="lightgray", colour = "gray50", size = 0.2) +
-#   geom_point(aes(x = Long, y = Lat, size = cases), alpha = 0.7,
-#              shape = 21, stroke =0.1, fill = "#ccff00") +
-#   geom_text(aes(x = Long, y = Lat, label = cases), hjust=0.5, vjust=0.2, size = 1.5) +
-#   coord_fixed() +
-#   transition_states(states = date,
-#                     transition_length = 3,
-#                     state_length = 3) +
-#   enter_fade() +
-#   exit_fade() +
-#   labs(x="", y="", title = "COVID-19", subtitle = "Coronavirus evolution around the World",
-#        caption = 'Year: ',
-#        size = "Confirmed \ncases") +
-#   theme_bw() +
-#   theme(plot.title = element_text(face = "bold"))
-```
-
