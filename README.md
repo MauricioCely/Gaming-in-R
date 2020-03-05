@@ -1,3 +1,2 @@
-# Gaming-in-R
-
-Here are some of the post I do in my personal site. They are a mixture of works related with my research topic, my likes or simply to share some useful info.
+# Coronavirus
+It is a short post about the `coronavirus` package. Introductory for people who want to learn how to manipulate datasets with `dplyr` and start elaborating graphs with `ggplo2`.
