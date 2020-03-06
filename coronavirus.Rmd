@@ -1,14 +1,26 @@
 ---
-title: "Data visualization with R coronavirus and ggplot2 Packages"
+title: "**Data visualization with R** - `coronavirus` and `ggplot2` Packages"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   html_document:
     df_print: paged
+    code_fold: show
 ---
 
-```{r setup, include=FALSE}
+```{r setup,echo=FALSE, include=TRUE, warning=FALSE}
+# =============== SETTING ENVIROMENT VARIABLES ===============
+
+Sys.setenv("LANGUAGE"="En", TZ = "UTC")
+
 knitr::opts_chunk$set(echo = TRUE)
+
+klippy::klippy(tooltip_message = 'Click to copy', tooltip_success = 'Done',
+               color = 'darkred', position = "right")
 ```
+<style>
+body {
+text-align: justify}
+</style>
 
 # Coronavirus
 
@@ -27,7 +39,7 @@ if (!require(devtools)) {
     install.packages("devtools")
 }
 if (!require(coronavirus)) {
-  devtools::install_github(" RamiKrispin/coronavirus")
+  devtools::install_github("RamiKrispin/coronavirus")
 }
 ```
 
@@ -41,7 +53,7 @@ library(maps)         # Draw Geographical Maps
 library(ggplot2)      # Create Elegant Data Visualisations Using the Grammar of Graphics
 ```
 
-## COVID-19 spread evolution around the Globe
+### COVID-19 spread evolution around the Globe
 
 When loading the `library(coronavirus)` we get the dataset which contains the daily summary of Coronavirus cases (confirmed, death, and recovered), by state/province for some countries as seen below:
 
@@ -64,9 +76,9 @@ coronavirus_data %>% head() %>% kable()
 
 Now we are going to locate each coordinate of the dataset in a worldmap using a point for each one. Color and size of the points are going to be related with the quantity of cases, we are going to build a grid of plots with the `facet_grid` function to create a map for each type of case:
 
-```{r fig.height=6,fig.width=9, fig.align = "center", out.width="100%"}
+```{r fig.height=6,fig.width=9, fig.align = "center", out.width="100%", class.output="scroll-100"}
 
-# CREATE THEME
+# *************** Create a Map theme ***************
 theme.maptheeme <-
   theme(text = element_text(family = "Gill Sans", color = "#444444")) +
   theme(plot.title = element_text(size = 16, face = "bold")) +
@@ -79,33 +91,178 @@ theme.maptheeme <-
   theme(legend.key = element_blank()) +
   theme(legend.title = element_text(size = 12)) +
   theme(legend.text = element_text(size = 10)) +
-  theme(panel.background = element_rect(fill = "#596673")) +
-  theme(panel.grid = element_blank())
+  theme(legend.direction = "vertical") +
+  theme(legend.box = "horizontal") +
+  theme(panel.background = element_rect(fill = "#2B343D")) +
+  theme(panel.grid = element_blank()) +
+  theme(panel.border = element_rect(color = "#2B343D", fill = NA)) +
+  theme(strip.background = element_rect(color = "#2B343D", fill = "#2B343D")) +
+  theme(strip.text = element_text(colour = "lightgray")) +
+  theme(plot.title = element_text(face = "bold"))
+
+# *************** Convert type cases to capital letters ***************
+coronavirus_data$type <- 
+  factor(coronavirus_data$type, labels = toupper(unique(coronavirus_data$type))) # To upper case
+
+# *************** Get the woldmap ***************
 
 map.world <- map_data("world")  # Here we are obtaining the worldmap data, borders, countries, etc.
 
 ggplot() +
   geom_polygon(data = map.world, aes(x = long, y = lat, group = group), 
-               fill = "#DEDEDE",colour = "#818181", size = 0.2) +   # World map
+               fill="#222524", colour = "#707070", size = 0.1, alpha = 0.5) +   # World map
   geom_point(data = coronavirus_data, 
              aes(x = Long, y = Lat, size = total, fill = type, color = type),
-             shape = 21, stroke =0.4, alpha = 0.4) +                 # Coronavirus
-  facet_wrap(facets = ~type, ncol = 2) +                            # Facet
+             shape = 21, stroke =0.4, alpha = 0.4) +                            # Coronavirus geometry
+  facet_wrap(facets = ~type, ncol = 2) +                                        # Facet
   scale_size_continuous(range = c(.7,15), 
-                        labels = scales::comma_format()) +
+                        labels = scales::comma_format()) +              
+  scale_fill_manual(values = c("#ffe146", "#be2026", "#21b6ba")) +
+  scale_color_manual(values = c("#ffe146", "#be2026", "#21b6ba"), guide=FALSE) +# Scales
   labs(x="", y="", title = "COVID-19", 
        subtitle = paste("Total number of coronavirus cases from the origin of the disease to",
                         max(coronavirus$date)),
-       size = "Confirmed \ncases" , color = "Type\n") +                                # Aesthetics
-  guides(fill = guide_legend(override.aes = list(size=10, alpha = 0.5)),
+       size = "Confirmed \ncases" , fill = "Type\n") +                          # Aesthetics
+  guides(fill = guide_legend(override.aes = list(size=10, alpha = 0.6)),
          size = guide_legend(override.aes = list(alpha = 0.9, stroke = 1))) +
   coord_fixed() +
   theme.maptheeme +
-  theme(plot.title = element_text(face = "bold"),
-        legend.position = c(0.75, 0.25), 
-        legend.direction = "vertical",
-        legend.box = "horizontal")
+  theme(legend.position = c(0.75, 0.25))
 ```
+
+### Countries where COVID-19 has reached
+
+Now it is time to track the virus from China. For that I create a dataframe with the Chinese province where were registered the first cases, i.e. in *Wuhan*, capital of *Hubei* province. Then I created another dataframe representing places where COVID-19 came. Once this is done, I selected only the Lat and Long and represented only once for each country and to avoid overlapping of lines. I created a random column named curvature so that the trajectories seem more real on the final map.
+
+```{r fig.height=5,fig.width=9, fig.align = "center", out.width="100%"}
+# *************** Get the origin points to the curves ***************
+# Origin
+Wuhan <- 
+data.frame(Province.State = "Hubei",
+           Lat = 30.97564,
+           Long = 112.2707)
+
+# Destination of the virus
+migr_corona <- 
+coronavirus %>% filter(Province.State != "Hubei") %>% 
+  select(Lat, Long) %>% distinct() %>% 
+  mutate(curvature = runif(n(), min = -0.4, max = 0.4)) # I created a random curvature index
+
+ggplot() +
+  geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
+               fill="#222524", colour = "#707070", size = 0.08, alpha = 0.5) +  # World map
+lapply(split(migr_corona, 1:nrow(migr_corona)), function(dat) {
+    geom_curve(data = dat, aes(x=Wuhan$Long, y=Wuhan$Lat, xend=Long, yend=Lat),
+               color= alpha("#21b6ba", 0.8),
+               size=.1,
+               curvature = dat["curvature"]) }) +                               # Conect points
+  geom_point(data=Wuhan,
+             aes(x=Long, y=Lat), 
+             fill="red", shape = 21, stroke=0.2,
+             color ="white", size=1.5) +
+  geom_point(data=migr_corona,
+             aes(x=Long, y=Lat), 
+             color =alpha("#21b6ba", 0.9),size=0.2) +
+  coord_fixed() +
+  guides(color=guide_legend(nrow = 3)) +
+  labs(x="", y="", title = "COVID-19", subtitle = "Countries where the virus has reached",
+       color = "") +
+  #transition_reveal(along = date, keep_last = T) +
+  theme.maptheeme
+```
+
+
+## Cumulative number of cases registered outside of China
+
+```{r}
+
+
+coronavirus_ev <- 
+coronavirus %>% 
+  rename(Country = Country.Region) %>% 
+  select(-Province.State, -Lat, -Long) %>% 
+  group_by(Country, date, type) %>% 
+  summarise(total = sum(cases))
+
+coronavirus_ev %>% head() %>% kable()
+```
+
+
+```{r fig.height=11,fig.width=9, fig.align = "center", out.width="100%"}
+
+library(ggflags)      # A flag geom for ggplot2
+library(countrycode)  # Convert Country Names and Country Codes
+
+coronavirus_ev <- 
+coronavirus_ev %>% filter(Country != "Mainland China" ) 
+
+top_three <- 
+coronavirus_ev %>%  
+  ungroup() %>%  
+  filter(date == max(date)) %>%
+  group_by(type) %>% 
+  arrange(type, desc(total)) %>% 
+  top_n(n = 3, wt = total) %>% 
+  mutate(Country = ifelse(Country == "UK", "United Kingdom",
+                          no = ifelse(Country == "US", "United States", no = Country)),
+         rank = rank(desc(total)))
+
+
+countrynames <- 
+  codelist %>% 
+  select(country.name.en, ecb) %>% 
+  rename(Country = country.name.en)
+
+top_three <- 
+merge(top_three, countrynames, by = "Country", all.x = TRUE)
+
+
+ggplot(data = coronavirus_ev, aes(x = date, y = total, group = Country)) +
+  geom_line(aes(color = Country)) +
+  geom_segment(data = top_three,
+               aes(x = date, y = total, group = Country, xend = date + 4, yend = total),
+               linetype = 2, size = 0.5) +
+  geom_label(data = top_three,
+             aes(x = date + 2, y = total, group = Country, label = total)) +
+  geom_flag(data = top_three, 
+            aes(x= date + 4, y = total, country = tolower(ecb)), size= 10) +
+  facet_wrap(facets = .~type, ncol = 1, scales = "free_y") +
+  guides(color=guide_legend(ncol=7,title.position = "bottom", title.hjust = 0.5)) +
+  theme(legend.position = "bottom")
+```
+
+
+## Cases Distribution by Type 
+
+```{r fig.height=11,fig.width=9, fig.align = "center", out.width="100%"}
+fancy_scientific <- function(l) {
+     # turn in to character string in scientific notation
+     l <- format(l, scientific = TRUE)
+     # quote the part before the exponent to keep all the digits
+     l <- gsub("^(.*)e", "'\\1'e", l)
+     # turn the 'e+' into plotmath format
+     l <- gsub("e", "%*%10^", l)
+     # return this as an expression
+     parse(text=l)
+}
+
+coronavirus %>% 
+  rename(Country = Country.Region) %>% 
+  filter(Country != "Others") %>% 
+  select(-Province.State, -Lat, -Long) %>% 
+    mutate(Country = ifelse(Country == "UK", "United Kingdom",
+                          no = ifelse(Country == "US", "United States", no = Country))) %>% 
+  group_by(Country, type) %>% 
+  summarise(total = sum(cases)) %>% 
+  top_n(25, total) %>% 
+ggplot(aes(x = total, y = reorder(x = Country,X =  total, FUN = max), fill = type)) +
+  geom_bar(stat = "identity") +
+    facet_grid(.~type, scales = "free_x") +
+  scale_x_log10(labels = scales::label_number_si())
+  
+
+```
+
 
 But as seen all the points are overlapped, because the date is not being considered. Now we are going to include this variable (time) as a _Dynamic_ plot, this using `library(gganimate)`. A very good guide explaining the features of this library is found [here](https://goodekat.github.io/presentations/2019-isugg-gganimate-spooky/slides.html).
 
@@ -116,57 +273,3 @@ Talk about geom_flag
 
 Max bar plot use dot line
 
-
-```{r, echo=FALSE}
-ggplot() +
-  geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
-               fill="lightgray", colour = "gray50", size = 0.2) +
-  geom_point(data = coronavirus, aes(x = Long, y = Lat, size = cases), alpha = 0.7,
-             shape = 21, stroke =0.1, fill = "#ccff00") +
-  coord_fixed() +
-  labs(x="", y="", title = "COVID-19", subtitle = "Coronavirus evolution around the World",
-       size = "Confirmed \ncases") +
-    scale_size(range = c(5,7)) +
-  #transition_time(date) +
-  theme_bw() +
-  theme(plot.title = element_text(face = "bold"))
-```
-
-
-
-```{r fig.height=5,fig.width=9, fig.align = "center", out.width="100%"}
-Wuhan <- 
-data.frame(Province.State = "Hubei",
-           Lat = 30.97564,
-           Long = 112.2707)
-
-migr_corona <- 
-coronavirus %>% filter(Province.State != "Hubei") %>% 
-  select(Lat, Long) %>% distinct() %>% 
-  mutate(curvature = runif(n(), min = -0.2, max = 0.2))
-
-ggplot() +
-  geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
-               fill="#767676", colour = "black", size = 0.05, alpha = 0.3) + 
-lapply(split(migr_corona, 1:nrow(migr_corona)), function(dat) {
-    geom_curve(data = dat, aes(x=Wuhan$Long, y=Wuhan$Lat, xend=Long, yend=Lat),
-               color= alpha("lightblue", 0.3),
-               size=.3,
-               curvature = dat["curvature"]) }) +
-  geom_point(data=Wuhan,
-             aes(x=Long, y=Lat), 
-             fill="red", shape = 21, stroke=0.2,
-             color ="white", size=1.5) +
-  geom_point(data=migr_corona,
-             aes(x=Long, y=Lat), 
-             color =alpha("lightblue", 0.3),size=0.2) +
-  coord_fixed() +
-  guides(color=guide_legend(nrow = 3)) +
-  labs(x="", y="", title = "COVID-19", subtitle = "Countries which have confirmed coronavirus cases",
-       color = "") +
-  #transition_reveal(along = date, keep_last = T) +
-  theme.maptheeme +
-  theme(plot.title = element_text(face = "bold"), 
-        legend.position = "bottom",
-        panel.background = element_rect(fill = "#021629"))
-```
