@@ -142,16 +142,17 @@ data.frame(Province.State = "Hubei",
 
 migr_corona <- 
 coronavirus %>% filter(Province.State != "Hubei") %>% 
-  select(Lat, Long) %>% distinct()
+  select(Lat, Long) %>% distinct() %>% 
+  mutate(curvature = runif(n(), min = -0.2, max = 0.2))
 
 ggplot() +
   geom_polygon(data = map.world, aes(x = long, y = lat, group = group),
                fill="#767676", colour = "black", size = 0.05, alpha = 0.3) + 
-  geom_curve(data=migr_corona, angle =  runif(nrow(migr_corona), min = 0, max = 180),
-             aes(x=Wuhan$Long, y=Wuhan$Lat, xend=Long, yend=Lat),
-             color= alpha("lightblue", 0.3),
-             size=.3,
-             curvature=0.4) +
+lapply(split(migr_corona, 1:nrow(migr_corona)), function(dat) {
+    geom_curve(data = dat, aes(x=Wuhan$Long, y=Wuhan$Lat, xend=Long, yend=Lat),
+               color= alpha("lightblue", 0.3),
+               size=.3,
+               curvature = dat["curvature"]) }) +
   geom_point(data=Wuhan,
              aes(x=Long, y=Lat), 
              fill="red", shape = 21, stroke=0.2,
